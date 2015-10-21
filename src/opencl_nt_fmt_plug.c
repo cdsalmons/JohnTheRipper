@@ -124,6 +124,7 @@ static cl_mem pinned_saved_keys, pinned_saved_idx, pinned_int_key_loc;
 static cl_mem buffer_keys, buffer_idx, buffer_int_keys, buffer_int_key_loc;
 static cl_uint *saved_plain, *saved_idx, *saved_int_key_loc;
 static int static_gpu_locations[MASK_FMT_INT_PLHDR];
+static struct db_main *fake_db;
 
 static unsigned int shift64_ht_sz, shift64_ot_sz;
 
@@ -254,6 +255,7 @@ static void release_base_clobj(void)
 
 static void done(void)
 {
+	ldr_free_fake_db(fake_db);
 	release_clobj();
 	release_base_clobj();
 
@@ -544,6 +546,9 @@ static int crypt_all(int *pcount, struct db_salt *salt)
 
 	//fprintf(stderr, "%s(%d) lws "Zu" gws "Zu" idx %u int_cand %d\n", __FUNCTION__, count, local_work_size, gws, key_idx, mask_int_cand.num_int_cand);
 
+	if (!salt && fake_db)
+		salt = fake_db->salts;
+
 	// copy keys to the device
 	if (key_idx)
 		BENCH_CLERROR(clEnqueueWriteBuffer(queue[gpu_id], buffer_keys, CL_FALSE, 0, 4 * key_idx, saved_plain, 0, NULL, multi_profilingEvent[0]), "failed in clEnqueueWriteBuffer buffer_keys.");
@@ -562,6 +567,14 @@ static void reset(struct db_main *db)
 	static size_t o_lws, o_gws;
 	size_t gws_limit;
 
+	if (db) {
+		ldr_free_fake_db(fake_db);
+	} else {
+		if (!fake_db)
+			fake_db = ldr_init_fake_db(self);
+		db = fake_db;
+	}
+
 	//fprintf(stderr, "%s(%p), i=%d\n", __FUNCTION__, db, initialized);
 	gws_limit = MIN((0xf << 21) * 4 / BUFSIZE,
 					get_max_mem_alloc_size(gpu_id) / BUFSIZE);
@@ -570,53 +583,37 @@ static void reset(struct db_main *db)
 						get_max_mem_alloc_size(gpu_id) / BUFSIZE))
 		gws_limit >>= 1;
 
-	if (initialized && db) {
-		release_base_clobj();
-		release_clobj();
-
-		num_loaded_hashes = db->salts->count;
-		ocl_hc_128_prepare_table(db->salts);
-		init_kernel(num_loaded_hashes, ocl_hc_128_select_bitmap(num_loaded_hashes));
-
-		create_base_clobj();
-
+	if (initialized) {
 		// Forget the previous auto-tune
 		local_work_size = o_lws;
 		global_work_size = o_gws;
 
-		// Initialize openCL tuning (library) for this format.
-		opencl_init_auto_setup(SEED, 1, NULL, warn, 2, self,
-							   create_clobj, release_clobj,
-		                       2 * BUFSIZE, gws_limit);
-
-		// Auto tune execution from shared/included code.
-		autotune_run_extra(self, 1, gws_limit, 300, CL_TRUE);
-	}
-	else {
-
+		release_base_clobj();
+		release_clobj();
+		initialized = 0;
+	} else {
 		o_lws = local_work_size;
 		o_gws = global_work_size;
-
-		ocl_hc_128_prepare_table_test();
-
-		init_kernel(num_loaded_hashes, ocl_hc_128_select_bitmap(num_loaded_hashes));
-
-		create_base_clobj();
-
-		// GPU mask mode bench, do not auto tune for self test.
-		if ((options.flags & FLG_MASK_CHK) && !(options.flags & FLG_TEST_CHK))
-			opencl_get_sane_lws_gws_values();
-
-		// Initialize openCL tuning (library) for this format.
-		opencl_init_auto_setup(SEED, 1, NULL, warn, 2, self,
-							   create_clobj, release_clobj,
-		                       2 * BUFSIZE, gws_limit);
-
-		// Auto tune execution from shared/included code.
-		autotune_run_extra(self, 1, gws_limit, 300, CL_TRUE);
-
-		initialized++;
+		initialized = 1;
 	}
+
+	num_loaded_hashes = db->salts->count;
+	ocl_hc_128_prepare_table(db->salts);
+	init_kernel(num_loaded_hashes, ocl_hc_128_select_bitmap(num_loaded_hashes));
+
+	create_base_clobj();
+
+	// GPU mask mode bench, do not auto tune for self test.
+	if ((options.flags & FLG_MASK_CHK) && !(options.flags & FLG_TEST_CHK))
+		opencl_get_sane_lws_gws_values();
+
+	// Initialize openCL tuning (library) for this format.
+	opencl_init_auto_setup(SEED, 1, NULL, warn, 2, self,
+	                       create_clobj, release_clobj,
+	                       2 * BUFSIZE, gws_limit);
+
+	// Auto tune execution from shared/included code.
+	autotune_run_extra(self, 1, gws_limit, 300, CL_TRUE);
 }
 
 struct fmt_main fmt_opencl_NT = {

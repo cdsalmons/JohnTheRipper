@@ -207,7 +207,8 @@ static char* is_key_right(struct fmt_main *format, int index,
 	count = index + 1;
 	match = format->methods.crypt_all(&count, NULL);
 
-	if (!format->methods.cmp_all(binary, match)) {
+	if ((match && !format->methods.cmp_all(binary, match)) ||
+	    (!match && format->methods.cmp_all(binary, match))) {
 		sprintf(err_buf, "cmp_all(%d)", match);
 		return err_buf;
 	}

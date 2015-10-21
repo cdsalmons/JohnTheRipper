@@ -1555,7 +1555,12 @@ static void john_run(void)
 		}
 
 		if (!(options.flags & FLG_STDOUT)) {
-			char *where = fmt_self_test(database.format, &database);
+			struct db_main *test_db;
+			char *where;
+
+			test_db = ldr_init_fake_db(database.format);
+			where = fmt_self_test(database.format, test_db);
+			ldr_free_fake_db(test_db);
 			if (where) {
 				fprintf(stderr, "Self test failed (%s)\n",
 				    where);
