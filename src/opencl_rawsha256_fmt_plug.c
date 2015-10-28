@@ -315,9 +315,9 @@ static void reset(struct db_main *db)
 				get_max_mem_alloc_size(gpu_id) / BUFFER_SIZE);
 
 		//Initialize openCL tuning (library) for this format.
-		opencl_init_auto_setup(SEED, 0, NULL,
-				       warn, 1, self, create_clobj, release_clobj,
-				       2 * BUFFER_SIZE, gws_limit);
+		opencl_init_auto_setup(SEED, 0, NULL, warn, 1, self,
+		                       create_clobj, release_clobj,
+		                       2 * BUFFER_SIZE, gws_limit, db);
 
 		//Auto tune execution from shared/included code.
 		autotune_run(self, 1, gws_limit, autotune_limit);
@@ -342,9 +342,9 @@ static void reset(struct db_main *db)
 					get_max_mem_alloc_size(gpu_id) / BUFFER_SIZE);
 
 			//Initialize openCL tuning (library) for this format.
-			opencl_init_auto_setup(SEED, 0, NULL,
-					       warn, 1, self, create_clobj, release_clobj,
-					       2 * BUFFER_SIZE, gws_limit);
+			opencl_init_auto_setup(SEED, 0, NULL, warn, 1,
+			                       self, create_clobj, release_clobj,
+			                       2 * BUFFER_SIZE, gws_limit, db);
 
 			//Auto tune execution from shared/included code.
 			autotune_run(self, 1, gws_limit, autotune_limit);

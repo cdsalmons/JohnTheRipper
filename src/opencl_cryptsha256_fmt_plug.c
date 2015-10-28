@@ -354,7 +354,7 @@ static void reset(struct db_main *db)
 		                        split_events : NULL),
 		                       warn, 1, self, create_clobj,
 		                       release_clobj,
-		                       sizeof(uint32_t) * (32 * 8) , 0);
+		                       sizeof(uint32_t) * (32 * 8) , 0, db);
 
 		//Auto tune execution from shared/included code.
 		autotune_run(self, ROUNDS_DEFAULT, 0,
