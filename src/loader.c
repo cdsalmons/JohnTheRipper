@@ -1081,6 +1081,8 @@ struct db_main *ldr_init_test_db(struct fmt_main *format, struct db_main *real)
 		char line[LINE_BUFFER_SIZE];
 		int i, pos = 0;
 
+		if (!current->fields[0])
+			current->fields[0] = "?";
 		if (!current->fields[1])
 			current->fields[1] = current->ciphertext;
 		for (i = 0; i < 10; i++)
